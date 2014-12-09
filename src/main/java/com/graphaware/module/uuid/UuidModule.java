@@ -26,6 +26,9 @@ import com.graphaware.tx.executor.single.TransactionCallback;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.tooling.GlobalGraphOperations;
 
 import java.util.List;
@@ -39,16 +42,17 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
 
     private final UuidGenerator uuidGenerator;
     private final UuidConfiguration uuidConfiguration;
-
+    private final GraphDatabaseService database;
     /**
      * Construct a new UUID module.
      *
      * @param moduleId ID of the module.
      */
-    public UuidModule(String moduleId, UuidConfiguration configuration) {
+    public UuidModule(String moduleId, UuidConfiguration configuration, GraphDatabaseService database) {
         super(moduleId);
         this.uuidGenerator = new EaioUuidGenerator();
         this.uuidConfiguration = configuration;
+        this.database = database;
     }
 
     /**
@@ -78,6 +82,7 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
                     public void execute(GraphDatabaseService database, Node node, int batchNumber, int stepNumber) {
                         if (getConfiguration().getInclusionPolicies().getNodeInclusionPolicy().include(node)) {
                             assignUuid(node);
+                            indexUuid(node);
                         }
                     }
                 }
@@ -93,6 +98,7 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
         //Set the UUID on all created nodes
         for (Node node : transactionData.getAllCreatedNodes()) {
             assignUuid(node);
+            indexUuid(node);
         }
 
         //Check if the UUID has been modified or removed from the node and throw an error
@@ -105,8 +111,22 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
                 throw new DeliberateTransactionRollbackException("You are not allowed to modify the " + uuidConfiguration.getUuidProperty() + " property");
             }
         }
-
+        for (Node deletedNode : transactionData.getAllDeletedNodes()) {
+            database.index().forNodes(uuidConfiguration.getUuidLegacyIndexName()).remove(deletedNode);
+        }
         return null;
+    }
+
+    /**
+     * Get a Node by its uuid
+     * @param uuid the uuid
+     * @return the node with the uuid or null if a node with the uuid does not exist
+     */
+    public Node getNodeByUuid(String uuid) {
+        if(uuid==null) {
+            throw new IllegalArgumentException("UUID cannot be null");
+        }
+        return database.index().forNodes(uuidConfiguration.getUuidLegacyIndexName()).get(uuidConfiguration.getUuidProperty(), uuid).getSingle();
     }
 
     private void assignUuid(Node node) {
@@ -115,4 +135,10 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
             node.setProperty(uuidConfiguration.getUuidProperty(), uuid);
         }
     }
+
+    private void indexUuid(Node node) {
+        database.index().forNodes(uuidConfiguration.getUuidLegacyIndexName()).add(node, uuidConfiguration.getUuidProperty(), node.getProperty(uuidConfiguration.getUuidProperty()));
+    }
+
+
 }

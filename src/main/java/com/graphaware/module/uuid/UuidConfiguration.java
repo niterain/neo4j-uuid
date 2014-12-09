@@ -26,16 +26,19 @@ import com.graphaware.runtime.policy.InclusionPoliciesFactory;
 public class UuidConfiguration extends BaseTxDrivenModuleConfiguration<UuidConfiguration> {
 
     private static final String DEFAULT_UUID_PROPERTY = "uuid";
+    private static final String DEFAULT_UUID_LEGACY_INDEX_NAME = "uuidIndex";
 
     private String uuidProperty;
+    private String uuidLegacyIndexName;
 
     protected UuidConfiguration(InclusionPolicies inclusionPolicies) {
         super(inclusionPolicies);
     }
 
-    public UuidConfiguration(InclusionPolicies inclusionPolicies, String uuidProperty) {
+    public UuidConfiguration(InclusionPolicies inclusionPolicies, String uuidProperty, String uuidLegacyIndexName) {
         super(inclusionPolicies);
         this.uuidProperty = uuidProperty;
+        this.uuidLegacyIndexName = uuidLegacyIndexName;
     }
 
     /**
@@ -47,7 +50,7 @@ public class UuidConfiguration extends BaseTxDrivenModuleConfiguration<UuidConfi
      * on the object, always using the returned object (this is a fluent interface).
      */
     public static UuidConfiguration defaultConfiguration() {
-        return new UuidConfiguration(InclusionPoliciesFactory.allBusiness(), DEFAULT_UUID_PROPERTY);
+        return new UuidConfiguration(InclusionPoliciesFactory.allBusiness(), DEFAULT_UUID_PROPERTY, DEFAULT_UUID_LEGACY_INDEX_NAME);
     }
 
     /**
@@ -55,11 +58,15 @@ public class UuidConfiguration extends BaseTxDrivenModuleConfiguration<UuidConfi
      */
     @Override
     protected UuidConfiguration newInstance(InclusionPolicies inclusionPolicies) {
-        return new UuidConfiguration(inclusionPolicies, getUuidProperty());
+        return new UuidConfiguration(inclusionPolicies, getUuidProperty(), getUuidLegacyIndexName());
     }
 
     public String getUuidProperty() {
         return uuidProperty;
+    }
+
+    public String getUuidLegacyIndexName() {
+        return uuidLegacyIndexName;
     }
 
     /**
@@ -69,12 +76,20 @@ public class UuidConfiguration extends BaseTxDrivenModuleConfiguration<UuidConfi
      * @return new instance.
      */
     public UuidConfiguration withUuidProperty(String uuidProperty) {
-        return new UuidConfiguration(getInclusionPolicies(), uuidProperty);
+        return new UuidConfiguration(getInclusionPolicies(), uuidProperty, getUuidLegacyIndexName());
     }
 
     /**
-     * {@inheritDoc}
+     * Create a new instance of this {@link UuidConfiguration} with different uuid legacy index name.
+     *
+     * @param uuidLegacyIndexName of the new instance.
+     * @return new instance.
      */
+    public UuidConfiguration withUuidLegacyIndexName(String uuidLegacyIndexName) {
+        return new UuidConfiguration(getInclusionPolicies(), getUuidProperty(), uuidLegacyIndexName);
+    }
+
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -83,18 +98,18 @@ public class UuidConfiguration extends BaseTxDrivenModuleConfiguration<UuidConfi
 
         UuidConfiguration that = (UuidConfiguration) o;
 
-        if (!uuidProperty.equals(that.uuidProperty)) return false;
+        if (uuidLegacyIndexName != null ? !uuidLegacyIndexName.equals(that.uuidLegacyIndexName) : that.uuidLegacyIndexName != null)
+            return false;
+        if (uuidProperty != null ? !uuidProperty.equals(that.uuidProperty) : that.uuidProperty != null) return false;
 
         return true;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int hashCode() {
         int result = super.hashCode();
-        result = 31 * result + uuidProperty.hashCode();
+        result = 31 * result + (uuidProperty != null ? uuidProperty.hashCode() : 0);
+        result = 31 * result + (uuidLegacyIndexName != null ? uuidLegacyIndexName.hashCode() : 0);
         return result;
     }
 }

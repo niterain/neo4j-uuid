@@ -15,18 +15,17 @@
  */
 package com.graphaware.module.uuid;
 
-import com.graphaware.runtime.ProductionRuntime;
-import com.graphaware.runtime.RuntimeRegistry;
 import com.graphaware.runtime.policy.all.IncludeAllBusinessNodes;
 import org.junit.Test;
 import org.neo4j.cypher.javacompat.ExecutionEngine;
 import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.test.TestGraphDatabaseFactory;
 import org.neo4j.tooling.GlobalGraphOperations;
 
-import static com.graphaware.runtime.RuntimeRegistry.*;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static com.graphaware.runtime.RuntimeRegistry.getRuntime;
+import static org.junit.Assert.*;
 
 public class UuidModuleDeclarativeIntegrationTest {
 
@@ -40,10 +39,11 @@ public class UuidModuleDeclarativeIntegrationTest {
                 .loadPropertiesFromFile(this.getClass().getClassLoader().getResource("neo4j-uuid.properties").getPath())
                 .newGraphDatabase();
 
-        getRuntime(database).waitUntilStarted();
-
+        Index<Node> index;
         //When
         try (Transaction tx = database.beginTx()) {
+            IndexManager indexManager = database.index();
+            index = indexManager.forNodes("uuidIndex");
             Node node = database.createNode();
             node.addLabel(personLabel);
             node.setProperty("name", "aNode");
@@ -55,6 +55,8 @@ public class UuidModuleDeclarativeIntegrationTest {
         try (Transaction tx = database.beginTx()) {
             for (Node node : GlobalGraphOperations.at(database).getAllNodesWithLabel(personLabel)) {
                 assertTrue(node.hasProperty(UUID));
+                String uuid = (String) node.getProperty("uuid");
+                assertEquals(node, index.get("uuid", uuid).getSingle());
             }
             tx.success();
         }

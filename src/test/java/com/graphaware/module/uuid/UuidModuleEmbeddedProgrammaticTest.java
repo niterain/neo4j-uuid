@@ -19,13 +19,14 @@ import com.graphaware.common.policy.NodeInclusionPolicy;
 import com.graphaware.common.util.IterableUtils;
 import com.graphaware.runtime.GraphAwareRuntime;
 import com.graphaware.runtime.GraphAwareRuntimeFactory;
-import com.graphaware.runtime.config.RuntimeConfiguration;
 import com.graphaware.runtime.policy.all.IncludeAllBusinessNodes;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.neo4j.cypher.javacompat.ExecutionEngine;
 import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.test.TestGraphDatabaseFactory;
 import org.neo4j.tooling.GlobalGraphOperations;
 
@@ -35,6 +36,7 @@ import static org.junit.Assert.*;
 public class UuidModuleEmbeddedProgrammaticTest {
 
     private GraphDatabaseService database;
+    private Index<Node> index;
     private final Label testLabel = DynamicLabel.label("test");
     private final Label personLabel = DynamicLabel.label("Person");
     private UuidConfiguration uuidConfiguration;
@@ -42,6 +44,11 @@ public class UuidModuleEmbeddedProgrammaticTest {
     @Before
     public void setUp() {
         database = new TestGraphDatabaseFactory().newImpermanentDatabase();
+        try (Transaction tx = database.beginTx()) {
+            IndexManager indexManager = database.index();
+            index = indexManager.forNodes("uuidIndex");
+            tx.success();
+        }
     }
 
     @After
@@ -68,6 +75,8 @@ public class UuidModuleEmbeddedProgrammaticTest {
         try (Transaction tx = database.beginTx()) {
             Node personNode = IterableUtils.getSingle(GlobalGraphOperations.at(database).getAllNodesWithLabel(personLabel));
             assertTrue(personNode.hasProperty("uuid"));
+            String uuid = (String)personNode.getProperty("uuid");
+            assertEquals(personNode,index.get("uuid",uuid).getSingle());
             tx.success();
         }
     }
@@ -90,6 +99,8 @@ public class UuidModuleEmbeddedProgrammaticTest {
         try (Transaction tx = database.beginTx()) {
             for (Node node : GlobalGraphOperations.at(database).getAllNodesWithLabel(testLabel)) {
                 assertTrue(node.hasProperty(uuidConfiguration.getUuidProperty()));
+                String uuid = (String) node.getProperty(uuidConfiguration.getUuidProperty());
+                assertEquals(node, index.get(uuidConfiguration.getUuidProperty(),uuid).getSingle());
             }
             tx.success();
         }
@@ -113,12 +124,41 @@ public class UuidModuleEmbeddedProgrammaticTest {
             for (Node node : GlobalGraphOperations.at(database).getAllNodes()) {
                 if (IncludeAllBusinessNodes.getInstance().include(node)) {
                     assertTrue(node.hasProperty(uuidConfiguration.getUuidProperty()));
+                    String uuid = (String) node.getProperty(uuidConfiguration.getUuidProperty());
+                    assertEquals(node, index.get(uuidConfiguration.getUuidProperty(),uuid).getSingle());
                 }
             }
             tx.success();
         }
     }
 
+    @Test
+    public void nodesAssignedUuidShouldBeAllowedToBeDeleted() {
+        //Given
+        registerModuleWithNoLabels();
+        Node node;
+        String uuid;
+
+        //When
+        try (Transaction tx = database.beginTx()) {
+            node = database.createNode();
+            node.setProperty("name", "aNode");
+            tx.success();
+        }
+
+        try (Transaction tx = database.beginTx()) {
+            uuid = (String) node.getProperty(uuidConfiguration.getUuidProperty());
+            node.delete();
+            tx.success();
+        }
+
+        //Then
+        //Retrieve the node and check that it has a uuid property
+        try (Transaction tx = database.beginTx()) {
+            assertNull(index.get(uuidConfiguration.getUuidProperty(), uuid).getSingle());
+            tx.success();
+        }
+    }
 
     @Test(expected = TransactionFailureException.class)
     public void shouldNotBeAbleToChangeTheUuidOfLabeledNode() {
@@ -240,6 +280,8 @@ public class UuidModuleEmbeddedProgrammaticTest {
         try (Transaction tx = database.beginTx()) {
             for (Node node : GlobalGraphOperations.at(database).getAllNodesWithLabel(personLabel)) {
                 assertTrue(node.hasProperty(uuidConfiguration.getUuidProperty()));
+                String uuid = (String) node.getProperty(uuidConfiguration.getUuidProperty());
+                assertEquals(node, index.get(uuidConfiguration.getUuidProperty(),uuid).getSingle());
             }
             tx.success();
         }
@@ -996,8 +1038,10 @@ public class UuidModuleEmbeddedProgrammaticTest {
 
     private void registerModuleWithNoLabels() {
         uuidConfiguration = UuidConfiguration.defaultConfiguration().withUuidProperty("uuid");
+        uuidConfiguration = UuidConfiguration.defaultConfiguration().withUuidLegacyIndexName("uuidIndex");
+
         GraphAwareRuntime runtime = GraphAwareRuntimeFactory.createRuntime(database);
-        UuidModule module = new UuidModule("UUIDM", uuidConfiguration);
+        UuidModule module = new UuidModule("UUIDM", uuidConfiguration, database);
         runtime.registerModule(module);
         runtime.start();
     }
@@ -1005,6 +1049,7 @@ public class UuidModuleEmbeddedProgrammaticTest {
     private void registerModuleWithLabels() {
         uuidConfiguration = UuidConfiguration.defaultConfiguration()
                 .withUuidProperty("uuid")
+                .withUuidLegacyIndexName("uuidIndex")
                 .with(new NodeInclusionPolicy() {
                     @Override
                     public boolean include(Node node) {
@@ -1013,7 +1058,7 @@ public class UuidModuleEmbeddedProgrammaticTest {
                 });
 
         GraphAwareRuntime runtime = GraphAwareRuntimeFactory.createRuntime(database);
-        UuidModule module = new UuidModule("UUIDM", uuidConfiguration);
+        UuidModule module = new UuidModule("UUIDM", uuidConfiguration, database);
         runtime.registerModule(module);
         runtime.start();
     }

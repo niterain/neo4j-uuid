@@ -21,6 +21,10 @@ import com.graphaware.runtime.config.function.StringToNodeInclusionPolicy;
 import com.graphaware.runtime.module.RuntimeModule;
 import com.graphaware.runtime.module.RuntimeModuleBootstrapper;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.index.Index;
+import org.neo4j.graphdb.index.IndexManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,6 +42,7 @@ public class UuidBootstrapper implements RuntimeModuleBootstrapper {
 
     //keys to use when configuring using neo4j.properties
     private static final String UUID_PROPERTY = "uuidProperty";
+    private static final String UUID_INDEX = "uuidIndexName";
     private static final String NODE = "node";
 
     /**
@@ -52,12 +57,17 @@ public class UuidBootstrapper implements RuntimeModuleBootstrapper {
             LOG.info("uuidProperty set to {}", configuration.getUuidProperty());
         }
 
+        if (config.get(UUID_INDEX) != null && config.get(UUID_INDEX).length() > 0) {
+            configuration = configuration.withUuidLegacyIndexName(config.get(UUID_INDEX));
+            LOG.info("uuidIndexName set to {}", configuration.getUuidLegacyIndexName());
+        }
+
         if (config.get(NODE) != null) {
             NodeInclusionPolicy policy = StringToNodeInclusionPolicy.getInstance().apply(config.get(NODE));
             LOG.info("Node Inclusion Strategy set to {}", policy);
             configuration = configuration.with(policy);
         }
 
-        return new UuidModule(moduleId, configuration);
+        return new UuidModule(moduleId, configuration, database);
     }
 }
