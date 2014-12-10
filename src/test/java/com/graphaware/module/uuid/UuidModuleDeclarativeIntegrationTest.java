@@ -38,6 +38,7 @@ public class UuidModuleDeclarativeIntegrationTest {
         GraphDatabaseService database = new TestGraphDatabaseFactory().newImpermanentDatabaseBuilder()
                 .loadPropertiesFromFile(this.getClass().getClassLoader().getResource("neo4j-uuid.properties").getPath())
                 .newGraphDatabase();
+            UuidApi uuidApi = new UuidApi(database);
 
         Index<Node> index;
         //When

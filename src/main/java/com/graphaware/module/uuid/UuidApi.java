@@ -37,10 +37,28 @@ import static com.graphaware.runtime.RuntimeRegistry.getStartedRuntime;
 public class UuidApi {
 
     private final GraphDatabaseService database;
+    private final String DEFAULT_MODULE_ID="UIDM";
+    private String moduleId=DEFAULT_MODULE_ID;
 
     @Autowired
     public UuidApi(GraphDatabaseService database) {
         this.database = database;
+    }
+
+    public UuidApi(GraphDatabaseService database, String moduleId) {
+        this.database=database;
+        this.moduleId = moduleId;
+
+    }
+    /**
+     * Get the Node ID by its UUID
+     * @param uuid UUID assigned to the node
+     * @return the internal Node Id
+     */
+    @RequestMapping(value = "/node/{uuid}", method = RequestMethod.GET)
+    @ResponseBody
+    public Long getNodeIdByUuid(@PathVariable(value = "uuid") String uuid) {
+        return getNodeIdByUuid(moduleId,uuid);
     }
 
     /**
@@ -62,10 +80,43 @@ public class UuidApi {
         return null;
     }
 
+    /**
+     * Get the UUID of a node by node ID
+     * @param nodeId the node ID
+     * @return the UUID assigned to this node or null if it does not exist
+     */
+    @RequestMapping(value = "/node/{nodeId}/uuid", method = RequestMethod.GET)
+    @ResponseBody
+    public String getUuidByNodeId(@PathVariable(value = "nodeId") long nodeId) {
+       return getUuidByNodeId(moduleId,nodeId);
+    }
+
+
+    /**
+     * Get the UUID of a node by node ID
+     * @param moduleId the module ID
+     * @param nodeId the node ID
+     * @return the UUID assigned to this node or null if it does not exist
+     */
+    @RequestMapping(value = "/{moduleId}/node/{nodeId}/uuid", method = RequestMethod.GET)
+    @ResponseBody
+    public String getUuidByNodeId(@PathVariable(value = "moduleId") String moduleId, @PathVariable(value = "nodeId") long nodeId) {
+        try(Transaction tx = database.beginTx()) {
+            return getStartedRuntime(database).getModule(moduleId, UuidModule.class).getUuidForNode(nodeId);
+
+        }
+    }
+
 
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleNotFound(IllegalArgumentException e) {
+        return Collections.singletonMap("message", e.getMessage());
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleNotFound(NotFoundException e) {
         return Collections.singletonMap("message", e.getMessage());
     }
 

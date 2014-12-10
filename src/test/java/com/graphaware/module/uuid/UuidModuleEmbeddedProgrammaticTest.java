@@ -107,6 +107,41 @@ public class UuidModuleEmbeddedProgrammaticTest {
     }
 
     @Test
+    public void uuidShouldBeFetchedViaApi() {
+        long nodeId=0;
+        String uuid=null;
+
+        //Given
+        registerModuleWithNoLabels();
+
+        //When
+        try (Transaction tx = database.beginTx()) {
+            Node node = database.createNode();
+            node.addLabel(testLabel);
+            node.setProperty("name", "aNode");
+            tx.success();
+        }
+
+        try (Transaction tx = database.beginTx()) {
+            for (Node node : GlobalGraphOperations.at(database).getAllNodesWithLabel(testLabel)) {
+                assertTrue(node.hasProperty(uuidConfiguration.getUuidProperty()));
+                uuid = (String) node.getProperty(uuidConfiguration.getUuidProperty());
+                assertEquals(node, index.get(uuidConfiguration.getUuidProperty(),uuid).getSingle());
+                nodeId=node.getId();
+            }
+            tx.success();
+        }
+
+        UuidApi uuidApi = new UuidApi(database);
+        assertEquals(uuid,uuidApi.getUuidByNodeId(nodeId));
+        assertEquals(uuid,uuidApi.getUuidByNodeId("UIDM",nodeId));
+        assertEquals(nodeId,uuidApi.getNodeIdByUuid(uuid).longValue());
+        assertEquals(nodeId,uuidApi.getNodeIdByUuid("UIDM",uuid).longValue());
+
+    }
+
+
+    @Test
     public void newNodesWithoutLabelShouldBeAssignedUuid() {
         //Given
         registerModuleWithNoLabels();
@@ -1041,7 +1076,7 @@ public class UuidModuleEmbeddedProgrammaticTest {
         uuidConfiguration = UuidConfiguration.defaultConfiguration().withUuidLegacyIndexName("uuidIndex");
 
         GraphAwareRuntime runtime = GraphAwareRuntimeFactory.createRuntime(database);
-        UuidModule module = new UuidModule("UUIDM", uuidConfiguration, database);
+        UuidModule module = new UuidModule("UIDM", uuidConfiguration, database);
         runtime.registerModule(module);
         runtime.start();
     }
@@ -1058,7 +1093,7 @@ public class UuidModuleEmbeddedProgrammaticTest {
                 });
 
         GraphAwareRuntime runtime = GraphAwareRuntimeFactory.createRuntime(database);
-        UuidModule module = new UuidModule("UUIDM", uuidConfiguration, database);
+        UuidModule module = new UuidModule("UIDM", uuidConfiguration, database);
         runtime.registerModule(module);
         runtime.start();
     }

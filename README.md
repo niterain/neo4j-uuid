@@ -4,7 +4,7 @@ GraphAware Neo4j UUID
 [![Build Status](https://travis-ci.org/graphaware/neo4j-uuid.png)](https://travis-ci.org/graphaware/neo4j-uuid) | <a href="http://graphaware.com/downloads/" target="_blank">Downloads</a> | <a href="http://graphaware.com/site/uuid/latest/apidocs/" target="_blank">Javadoc</a> | Latest Release: 2.1.6.26.7
 
 GraphAware UUID is a simple library that transparently assigns a UUID to newly created nodes in the graph and makes sure nobody
-can (accidentally or intentionally) change or delete them.
+can (accidentally or intentionally) change or delete them. It also indexes nodes on their UUIDs.
 
 Getting the Software
 --------------------
@@ -64,6 +64,9 @@ com.graphaware.module.UIDM.1=com.graphaware.module.uuid.UuidBootstrapper
 #optional, default is uuid:
 com.graphaware.module.UIDM.uuidProperty=uuid
 
+#Default is uuid:
+com.graphaware.module.UIDM.uuidIndexName=uuidIndex
+
 #optional, default is all nodes:
 com.graphaware.module.UIDM.node=hasLabel('Label1') || hasLabel('Label2')
 
@@ -72,6 +75,7 @@ com.graphaware.module.UIDM.node=hasLabel('Label1') || hasLabel('Label2')
 Note that "UIDM" becomes the module ID. 
 
 `com.graphaware.module.UIDM.uuidProperty` is the property name that will be used to store the assigned UUID on the node. The default is "uuid".
+`com.graphaware.module.UIDM.uuidIndexName` is the name of the legacy index that will be used to index nodes based on their uuid. The default is "uuidIndex" and the key used to index will be `com.graphaware.module.UIDM.uuidProperty`
 
 `com.graphaware.module.UIDM.nodes` specifies either a fully qualified class name of [`NodeInclusionPolicy`](http://graphaware.com/site/framework/latest/apidocs/com/graphaware/common/policy/NodeInclusionPolicy.html) implementation,
 or a Spring Expression Language expression determining, which nodes to assign a UUID to. The default is to assign the
@@ -104,9 +108,38 @@ Using GraphAware UUID
 Apart from the configuration described above, the GraphAware UUID module requires nothing else to function. It will assign a UUID to nodes configured,
 and will prevent modifications to the UUID or deletion of the UUID property from these nodes by not allowing the transaction to commit.
 
-You may access the UUID via your own API's or Cypher- the GraphAware UUID module does not at this point provide an API to retrieve a node by UUID.
-This is because there is no efficient way to do this except via indexing, which is currently waiting on 
-<a href="https://github.com/neo4j/neo4j/issues/2714" target="_blank">issue 2714</a>
+### Server Mode
+
+In Server Mode, are available via the REST API.
+
+You can issue GET requests to `http://your-server-address:7474/graphaware/uuid/{moduleId}/node/{nodeId}/uuid` to get the UUID assigned to the node.
+{moduleId} is the module ID the UUID Module was registered with. You can omit this part of the URL, in which case "UIDM" is assumed as the default value.
+{nodeId} is the internal node ID.
+
+GET requests to `http://your-server-address:7474/graphaware/uuid/{moduleId}/node/{uuid}` return the node ID for the node identified by {uuid}.
+{moduleId} is the module ID the UUID Module was registered with. ou can omit this part of the URL, in which case "UIDM" is assumed as the default value.
+
+
+### Java API
+
+To use the Java API, please instantiate `UuidApi` and use one of its methods for getting the UUID.
+
+```
+UuidApi uuidApi = new UuidApi(database);
+String uuid = uuidApi.getUuidByNodeId(nodeId);
+long nodeId = uuidApi.getNodeIdByUuid(uuid);
+```
+
+In case the UUID Module is registered with ID different than "UIDM", then
+the ID must be specified when constructing the reader.
+
+```
+UuidApi uuidApi = new UuidApi(database,"ModuleID");
+String uuid = uuidApi.getUuidByNodeId(nodeId);
+long nodeId = uuidApi.getNodeIdByUuid(uuid);
+```
+
+Please refer to Javadoc for more detail.
 
 
 License

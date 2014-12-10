@@ -45,6 +45,8 @@ public class UuidApiTest extends NeoServerIntegrationTest {
         JsonObject obj = parser.parse(result).getAsJsonObject();
         String uuid = obj.get("results").getAsJsonArray().get(0).getAsJsonObject().get("data").getAsJsonArray().get(0).getAsJsonObject().get("row").getAsJsonArray().get(0).getAsString();
         assertEquals("0", get(baseUrl() + "/graphaware/uuid/UIDM/node/" + uuid, HttpStatus.SC_OK));
+
+        assertEquals(uuid,get(baseUrl() + "/graphaware/uuid/UIDM/node/" + 0 + "/uuid",HttpStatus.SC_OK));
     }
 
 

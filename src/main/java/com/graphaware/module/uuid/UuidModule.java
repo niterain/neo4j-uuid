@@ -135,6 +135,20 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
         }
     }
 
+    /**
+     * Get the UUID of a node
+     * @param nodeId the node id
+     * @return theuuid or null if a node if it does not exist
+     */
+    public String getUuidForNode(long nodeId) {
+
+        Node node =  database.getNodeById(nodeId);
+        if(node.hasProperty(uuidConfiguration.getUuidProperty())) {
+            return (String)node.getProperty(uuidConfiguration.getUuidProperty());
+        }
+        return null;
+    }
+
     private void assignUuid(Node node) {
         if (!node.hasProperty(uuidConfiguration.getUuidProperty())) {
             String uuid = uuidGenerator.generateUuid();
