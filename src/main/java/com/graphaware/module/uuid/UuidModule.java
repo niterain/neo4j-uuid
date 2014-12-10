@@ -126,7 +126,13 @@ public class UuidModule extends BaseTxDrivenModule<Void> {
         if(uuid==null) {
             throw new IllegalArgumentException("UUID cannot be null");
         }
-        return database.index().forNodes(uuidConfiguration.getUuidLegacyIndexName()).get(uuidConfiguration.getUuidProperty(), uuid).getSingle();
+        Node node =  database.index().forNodes(uuidConfiguration.getUuidLegacyIndexName()).get(uuidConfiguration.getUuidProperty(), uuid).getSingle();
+        if(node!=null) {
+            return node;
+        }
+        else {
+            throw new IllegalArgumentException("Node with UUID " + uuid + " does not exist");
+        }
     }
 
     private void assignUuid(Node node) {

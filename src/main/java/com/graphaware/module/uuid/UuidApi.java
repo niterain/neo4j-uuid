@@ -17,12 +17,17 @@ package com.graphaware.module.uuid;
 
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
+import org.neo4j.graphdb.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.Map;
+
+import static com.graphaware.runtime.RuntimeRegistry.getStartedRuntime;
 
 /**
  * REST API for {@link UuidModule}.
@@ -38,10 +43,30 @@ public class UuidApi {
         this.database = database;
     }
 
-    @RequestMapping(value = "/node/{uuid}", method = RequestMethod.GET)
+    /**
+     * Get the Node ID by its UUID
+     * @param moduleId the module ID
+     * @param uuid UUID assigned to the node
+     * @return the internal Node Id
+     */
+    @RequestMapping(value = "/{moduleId}/node/{uuid}", method = RequestMethod.GET)
     @ResponseBody
-    public Node getNodeIdByUuid(@PathVariable(value = "uuid") String uuid) {
-        return null; //TODO till indexing is fixed or we use labels or a global scan
+    public Long getNodeIdByUuid(@PathVariable(value = "moduleId") String moduleId, @PathVariable(value = "uuid") String uuid) {
+        try(Transaction tx = database.beginTx()) {
+            Node node = getStartedRuntime(database).getModule(moduleId, UuidModule.class).getNodeByUuid(uuid);
+            if(node!=null) {
+               return node.getId();
+            }
+            tx.success();
+        }
+        return null;
+    }
+
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Map<String, String> handleNotFound(IllegalArgumentException e) {
+        return Collections.singletonMap("message", e.getMessage());
     }
 
 }
